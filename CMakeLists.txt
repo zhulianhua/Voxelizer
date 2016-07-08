@@ -9,7 +9,10 @@ IF( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 ELSEIF ( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 ENDIF()
 
-file(GLOB_RECURSE SRC_LIST "*.cpp")
-file(GLOB_RECURSE HEADER_LIST "*.h")
+file(GLOB SRC_LIST "*.cpp")
+file(GLOB HEADER_LIST "*.h")
+
+file(GLOB TEST_SRC "./test/*.cpp")
 
 add_executable(voxelizer ${SRC_LIST} ${HEADER_LIST})
+add_executable(test ${TEST_SRC})

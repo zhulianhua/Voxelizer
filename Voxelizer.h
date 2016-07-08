@@ -7,11 +7,17 @@
 #include "V3.h"
 #include "Triangle.h"
 
-typedef struct int3 { int nx,ny, nz;} int3;
+class int3 {
+public:
+	int3() : nx(0), ny(0), nz(0) {};
+	int3(int nx_, int ny_, int nz_) : nx(nx_), ny(ny_), nz(nz_) {};
+	int nx, ny, nz;
+};
 
 
 class Line {
 public:
+	Line() {};
 	Line(V3& p1_, V3& p2_);
 	V3 get_length() const;
 	V3 p_cross_x_plane(double x) const;
@@ -28,12 +34,14 @@ bool corss_y(Line line_, double y)
 
 class Bbox {
 public:
-	Bbox(V3& minCorner_, V3& maxCorner_);
-	V3 get_minCorner() const;
-	V3 get_maxCorner() const;
-	V3 get_extend() const;
-	~Bbox();
-private:
+	Bbox() {};
+	Bbox(V3& minCorner_, V3& maxCorner_) : minCorner(minCorner_), maxCorner(maxCorner_) {};
+	inline V3 get_minCorner() const { return minCorner; };
+	inline V3 get_maxCorner() const { return maxCorner; };
+	inline V3 get_extend() const { return V3(maxCorner - minCorner); };
+	friend ostream& operator<<(ostream& os_, Bbox& box_);
+	~Bbox() {};
+protected:
 	V3 minCorner;
 	V3 maxCorner;
 };
@@ -41,11 +49,13 @@ private:
 class Geometry {
 public:
 	Geometry(string fname_);
-	int get_num_tri() const;
-	V3 get_refPoint() const;
-	V3 get_bound() const;
+	inline int get_num_tri() const { return (int)triangles.size(); };
+	inline V3 get_refPoint() const { return refPoint; };
+	inline Bbox get_bound() const { return bound; };
+	void set_bound();
 	void set_refPoint(V3& refPoint_);
 	void scale_shift(double scale_, V3 shift_);
+	inline Triangle get_tri(int i) const { return triangles[i];};
 	~Geometry();
 private:
 	void read_stl_file(string fname);
@@ -57,10 +67,9 @@ private:
 class GridBox : public Bbox {
 public:
 	GridBox(V3& minCorner_, V3& macCorner_, double dx_);
-	GridBox(Bbox& bound_, double dx_);
 	GridBox(V3& minCorner_, double dx_, int3 gridNum_);
-	double get_dx() const;
-	int3 get_gridNum() const;
+	inline double get_dx() const { return dx; };
+	inline int3 get_gridNum() const { return gridNum; };
 private:
 	double dx;
 	int3 gridNum;
@@ -73,18 +82,22 @@ public:
 	// return the voxelized flag;
 	shared_ptr<char> get_flag();
 	// ~descruction
+	~Voxelizer();
 private:
 	// get triangles that intersect with plane iz_
-	vector<Triangle>& get_relevant_triangles(int iz_) const;
+	void get_relevant_triangles(vector<Triangle>& tri_,  int iz_) const;
 
+	// TO BE DELETED
 	// get intersection of the geometry with the plane iz_;
-	vector<Line>& get_z_sections(int iz_, vector<Triangle>& tris_) const;
+	void get_z_sections(vector<Line>& lines_, int iz_, vector<Triangle>& tris_) const;
+
+	void get_z_sections(vector<Line>& lines_, int iz_) const;
 
 	// get lines that intersect with line iy_
-	vector<Line>& get_revelant_lines(int iy_ ) const;
+	void get_revelant_lines(vector<Line>& lines_, int iy_ ) const;
 
 	// get xid of the cells that intersection with lines at iy_
-	vector<int>& get_xid_cross(int iy_, vector<Line>& lines_) const;
+	void get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_) const;
 	// flag data
 	char* flag;
 
