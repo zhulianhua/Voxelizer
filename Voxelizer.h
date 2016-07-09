@@ -20,9 +20,9 @@ public:
 	Line() {};
 	Line(V3& p1_, V3& p2_);
 	V3 get_length() const;
-	V3 p_cross_x_plane(double x) const;
 	V3 p_cross_y_plane(double y) const;
 	V3 p_cross_z_plane(double z) const;
+	V3 p_cross_x_plane(double x) const;
 	V3 p1;
 	V3 p2;
 };
@@ -92,9 +92,6 @@ private:
 	void get_z_sections(vector<Line>& lines_, int iz_, vector<Triangle>& tris_) const;
 
 	void get_z_sections(vector<Line>& lines_, int iz_) const;
-
-	// get lines that intersect with line iy_
-	void get_revelant_lines(vector<Line>& lines_, int iy_ ) const;
 
 	// get xid of the cells that intersection with lines at iy_
 	void get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_) const;

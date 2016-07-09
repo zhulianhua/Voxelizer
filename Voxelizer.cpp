@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <algorithm>
 #include <cstdlib>
 #include "stdafx.h"
 #include "Voxelizer.h"
@@ -64,19 +65,38 @@ Line tri_sec_plane(Triangle& tri_, vector<int>& aboveP_, double z_) {
 	return Line(p1, p2);
 }
 
+
 ostream& operator<<(ostream& os_, Bbox& box_)
 {
-	os_ << "Bbox(\n  " << box_.minCorner << "\n  " << box_.maxCorner << "\n";
+	os_ << "Bbox(" << endl 
+		<< "minCorner: \t" << box_.minCorner << endl
+		<< "maxCorner: \t" << box_.maxCorner << endl
+		<< "Extend: \t" << box_.get_extend() << endl << ")" << endl;
+		
 	return os_;
 }
 
 Line::Line(V3& p1_, V3& p2_) : p1(p1_), p2(p2_) {};
 
+V3 Line::p_cross_z_plane(double z) const {
+	V3 ans = p1 + (p2 - p1) * (z - p1.z) / (p2.z - p1.z);
+	return ans;
+}
+
+V3 Line::p_cross_y_plane(double y) const {
+	V3 ans = p1 + (p2 - p1) * (y - p1.y) / (p2.y - p1.y);
+	return ans;
+}
+
+V3 Line::p_cross_x_plane(double x) const {
+	V3 ans = p1 + (p2 - p1) * (x - p1.x) / (p2.x - p1.x);
+	return ans;
+}
+
 Geometry::Geometry(string fname) {
 	read_stl_file(fname);
 	cout << "Num of triangle " << get_num_tri() << endl;
 	set_bound();
-	cout << "Extend of bounding of the geo" << get_bound() << endl;
 }
 
 Geometry::~Geometry() {}
@@ -206,10 +226,8 @@ Voxelizer::Voxelizer(Geometry& geo_, GridBox& grid_) : geo(geo_), grid(grid_) {
 
 	for (int iz = 1; iz <= nz; iz++)
 	{
-		vector<Triangle> tris;
-		get_relevant_triangles(tris, iz);
 		vector<Line> lines;
-		get_z_sections(lines, iz, tris);
+		get_z_sections(lines, iz);
 		for (int iy = 1; iy <= ny; iy++)
 		{
 			vector<int> xids;
@@ -246,7 +264,7 @@ void Voxelizer::get_relevant_triangles(vector<Triangle>& tri_, int iz_) const {
 	// case 1: 2 points below, 1 points above
 	// case 2: 1 points below, 2 points above
 	// case 3: 0 points below, 3 points above
-	for (int i; i < geo.get_num_tri(); i++) {
+	for (int i = 0; i < geo.get_num_tri(); i++) {
 		Triangle triTmp = geo.get_tri(i);
 		double dx = grid.get_dx();
 		double zmin = grid.get_minCorner().z;
@@ -260,7 +278,8 @@ void Voxelizer::get_relevant_triangles(vector<Triangle>& tri_, int iz_) const {
 void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_, vector<Triangle>& tris_) const {}
 
 void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_) const {
-	for (int i; i < geo.get_num_tri(); i++) {
+	lines_.clear();
+	for (int i = 0; i < geo.get_num_tri(); i++) {
 		Triangle triTmp = geo.get_tri(i);
 		double z = grid.get_dx() * iz_ + grid.get_minCorner().z;
 		vector<int> aboveP = tri_plane(triTmp, z);
@@ -271,32 +290,38 @@ void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_) const {
 	}
 }
 
-void Voxelizer::get_revelant_lines(vector<Line>& lines_, int iy_) const {
-
-}
-
 void Voxelizer::get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_) const {
+	V3 minCorner = grid.get_minCorner();
+	double dx = grid.get_dx();
+	double y = iy_ * dx + minCorner.y;
+	xids_.clear();
+	for (auto && lineTmp : lines_) 
+		if ((lineTmp.p1.y - y) * (lineTmp.p2.y - y) < 0.0) { // line cross y
+			V3 cross = lineTmp.p_cross_y_plane(y);
+			xids_.push_back((int)(cross.x - minCorner.x) / dx);
+		}
+	// sort
+	std::sort(xids_.begin(), xids_.end());
 }
 
 int main(int argc, char* argv[])
  {
+	 cout << argc << endl;
+	 if (argc != 2) {
+		 cerr << "Usage voxelizer.exe <filename>.stl" << endl;
+		 exit(EXIT_FAILURE);
+	 }
 	string fname(argv[1]);
-
 	// import geometry
 	Geometry geo(fname);
 	cout << geo.get_bound() << endl;
-	cout << geo.get_bound().get_extend() << endl;
 
 	// set bounding box
 	V3 minCorner(V3::zero);
 	V3 maxCorner(1.0, 1.0, 1.0);
-	GridBox grid(minCorner, maxCorner, 0.01);
+	GridBox grid(minCorner, maxCorner, 0.01); // dx = 0.01, so 100 cells in each direction
+	cout << "dx = " << grid.get_dx() << endl;
 
-	geo.scale_shift(grid.get_extend().z / geo.get_bound.get_extend().z, V3::zero);
-	geo.scale_shift(1.0, V3());
-
-	//for (auto&& tri : vox.triangles)
-	//	cout << tri << endl;
-	cout.precision(10);
+	Voxelizer vox(geo, grid);
     return 0;
 }

@@ -1,14 +1,16 @@
 #include <iostream>
+#include <vector>
 
 using namespace std;
+void f(int&);
+void g(const int&);
 
 int main(int argc, char* argv[])
 {
-	cout << "THIS IS A TEST" << endl;
-	char c = 'c';
-	char* a = new char[9];
-	cout << "123456789" << endl;
-	cout << *a << "END" << endl;
-	cout << c << endl;
+	int a = 1;
+	f(a);
+	g(1);
+	vector<int> b;
+	if (b.empty()) cout << "B is empty!" << endl;
 	return 0;
 }
