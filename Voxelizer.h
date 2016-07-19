@@ -80,7 +80,8 @@ public:
 	// constructor do the vexelization
 	Voxelizer(Geometry& geo_, GridBox& grid_);
 	// return the voxelized flag;
-	shared_ptr<char> get_flag();
+	const char* get_flag() const { return flag; };
+	void write_vtk_image();
 	// ~descruction
 	~Voxelizer();
 private:
@@ -95,8 +96,11 @@ private:
 
 	// get xid of the cells that intersection with lines at iy_
 	void get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_) const;
+	// get xid of the cells that intersection with lines at iy_  for debug
+	void get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_, int iz_) const;
 	// flag data
 	char* flag;
+
 
 	// geometry
 	Geometry geo;

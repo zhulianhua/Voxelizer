@@ -11,6 +11,8 @@
 #include "stdafx.h"
 #include "Voxelizer.h"
 
+//#define DEBUG
+
 using namespace std;
 
 // global functions
@@ -36,7 +38,7 @@ Line tri_sec_plane(Triangle& tri_, vector<int>& aboveP_, double z_) {
 		}
 		else if (aboveP_[0] == 2) {
 			line1 = Line(tri_.p2, tri_.p1);
-			line2 = Line(tri_.p3, tri_.p3);
+			line2 = Line(tri_.p2, tri_.p3);
 		}
 		else {
 			line1 = Line(tri_.p3, tri_.p1);
@@ -65,7 +67,6 @@ Line tri_sec_plane(Triangle& tri_, vector<int>& aboveP_, double z_) {
 	return Line(p1, p2);
 }
 
-
 ostream& operator<<(ostream& os_, Bbox& box_)
 {
 	os_ << "Bbox(" << endl 
@@ -79,12 +80,12 @@ ostream& operator<<(ostream& os_, Bbox& box_)
 Line::Line(V3& p1_, V3& p2_) : p1(p1_), p2(p2_) {};
 
 V3 Line::p_cross_z_plane(double z) const {
-	V3 ans = p1 + (p2 - p1) * (z - p1.z) / (p2.z - p1.z);
+	V3 ans = p1 + (p2 - p1) * (z - p1.z) / (p2.z - p1.z + 1e-10);
 	return ans;
 }
 
 V3 Line::p_cross_y_plane(double y) const {
-	V3 ans = p1 + (p2 - p1) * (y - p1.y) / (p2.y - p1.y);
+	V3 ans = p1 + (p2 - p1) * (y - p1.y) / (p2.y - p1.y + 1e-30);
 	return ans;
 }
 
@@ -160,19 +161,22 @@ void Geometry::scale_shift(double scale_, V3 shift_) {
 	// keep a track of the current shift and scale v.s. to the STL file
 	for (auto&& tri : triangles)
 	{
-		tri.p1 += shift_;
+		// scale then shift
 		tri.p1 *= scale_;
-		tri.p2 += shift_;
+		tri.p1 += shift_;
 		tri.p2 *= scale_;
-		tri.p3 += shift_;
+		tri.p2 += shift_;
 		tri.p3 *= scale_;
+		tri.p3 += shift_;
 		tri.norm *= scale_;
 	}
 	// min/max corner of the bound
 	V3 minCorner = bound.get_minCorner();
 	V3 maxCorner = bound.get_maxCorner();
-	minCorner += shift_;
 	minCorner *= scale_;
+	minCorner += shift_;
+	maxCorner *= scale_;
+	maxCorner += shift_;
 	bound = Bbox(minCorner, maxCorner);
 }
 
@@ -210,10 +214,17 @@ void Geometry::set_bound() {
 Voxelizer::Voxelizer(Geometry& geo_, GridBox& grid_) : geo(geo_), grid(grid_) {
 	// scale (in the z direction) and shift the geometry to fit the grid
 	Bbox bound = geo.get_bound();
-	double scale = grid.get_extend().z / bound.get_extend().z;
-	geo.scale_shift(scale, V3(0.0, 0.0, 0.0));
-	V3 shift = grid.get_minCorner() - bound.get_minCorner();
-	geo.scale_shift(1, shift);
+	cout << "GEO bound = " << bound << endl;
+
+	double dx = grid.get_dx();
+	double scale = (grid.get_extend().z - 2.0 * dx )/ bound.get_extend().z;
+	geo.scale_shift(scale, V3::zero);
+
+	V3 shift = grid.get_minCorner() - geo.get_bound().get_minCorner();
+	shift += V3(dx, dx, dx);
+	geo.scale_shift(1.0, shift);
+	
+	geo.scale_shift(1.0, V3::zero);
 
 	int3 gridNum = grid.get_gridNum();
 	int nx = gridNum.nx;
@@ -228,27 +239,58 @@ Voxelizer::Voxelizer(Geometry& geo_, GridBox& grid_) : geo(geo_), grid(grid_) {
 	{
 		vector<Line> lines;
 		get_z_sections(lines, iz);
+#ifdef DEBUG
+		if (iz == 1) cout << lines.size() << endl;
+		//cout << "Slize z = " << iz << ", sec lines numeber : " << lines.size() << endl;
+		if (iz == 11) {
+			ofstream of("line.txt");
+			for (auto&& l : lines) {
+				of << l.p1.x << "\t" << l.p1.y << endl;
+				of << l.p2.x << "\t" << l.p2.y << endl;
+			}
+			of.close();
+		}
+#endif
 		for (int iy = 1; iy <= ny; iy++)
 		{
 			vector<int> xids;
-			get_xid_cross(xids, iy, lines);
+			get_xid_cross(xids, iy, lines, iz);
+			//cout << iz << " " << iy << " !!!!!!!" << endl;
+#ifdef DEBUG
+			if (iy == 42 && iz == 11) {
+				cout << "Cross ix : " << endl;
+				if(!xids.empty())
+					for (auto&& ix : xids)
+						cout << ix << endl;
+				cout << "End cross ix" << endl;
+			}
+#endif
 			int n_change = 0;
 			bool isBlack = true;
-			for (int ix = 0; ix < nx; ix++)
-				if (ix == xids[n_change]) {
-					if (isBlack) {
-						isBlack = !isBlack;
-						flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
-					}
-					else {
-						flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
-						isBlack = !isBlack;
-					}
-					n_change++;
-				}
-				else{
+			if (xids.empty()) {
+				for (int ix = 0; ix < nx; ix++) {
 					flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
 				}
+			} 
+			else{
+				for (int ix = 0; ix < nx; ix++) {
+					//cout << "ix = " << ix << "   n_change  = " << n_change << endl;
+					if (n_change < xids.size() && ix == xids[n_change] ) {
+						n_change++;
+						if (isBlack) {
+							isBlack = !isBlack;
+							flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
+						}
+						else {
+							flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
+							isBlack = !isBlack;
+						}
+					}
+					else{
+						flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
+					}
+				}
+			}
 		}
 	}
 }
@@ -279,49 +321,115 @@ void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_, vector<Triangle>& 
 
 void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_) const {
 	lines_.clear();
+	double z = grid.get_dx() * iz_ + grid.get_minCorner().z;
+	//cout << "z = " << z << endl;
+	//cout << "dx = " << grid.get_dx() << endl;
+	//cout << "zmin = " << grid.get_minCorner().z << endl;
 	for (int i = 0; i < geo.get_num_tri(); i++) {
 		Triangle triTmp = geo.get_tri(i);
-		double z = grid.get_dx() * iz_ + grid.get_minCorner().z;
 		vector<int> aboveP = tri_plane(triTmp, z);
 		if (aboveP.size() > 0 && aboveP.size() < 3) {
 			Line lineTmp = tri_sec_plane(triTmp, aboveP, z);
 			lines_.push_back(lineTmp);
+			cout.precision(16);
+#ifdef DEBUG
+			if (lines_.size() == 56 && iz_ == 4) {
+				cout << "Abnominal line end : " << endl;
+				cout << lineTmp.p2 << endl;
+				cout << "Above P size " << aboveP.size() << endl;
+				cout << "Plane Z  " << z << endl;
+				cout << "Tri id is " << i << endl;
+				cout << "Tri = " << endl;
+				cout << triTmp << endl;
+			}
+#endif
 		}
 	}
 }
 
-void Voxelizer::get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_) const {
+void Voxelizer::get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_, int iz_) const {
 	V3 minCorner = grid.get_minCorner();
 	double dx = grid.get_dx();
 	double y = iy_ * dx + minCorner.y;
 	xids_.clear();
 	for (auto && lineTmp : lines_) 
 		if ((lineTmp.p1.y - y) * (lineTmp.p2.y - y) < 0.0) { // line cross y
+#ifdef DEBUG
+			if (iy_ == 40 && iz_ == 40) {
+				cout << lineTmp.p1 << endl;
+				cout << lineTmp.p2 << endl;
+			}
+#endif
 			V3 cross = lineTmp.p_cross_y_plane(y);
-			xids_.push_back((int)(cross.x - minCorner.x) / dx);
+			int xx = int((cross.x - minCorner.x) / dx);
+			xids_.push_back(xx);
 		}
 	// sort
 	std::sort(xids_.begin(), xids_.end());
 }
 
+void Voxelizer::write_vtk_image() {
+	int3 gridNum = grid.get_gridNum();
+	int nx = gridNum.nx;
+	int ny = gridNum.ny;
+	int nz = gridNum.nz;
+	ofstream of("flag.vtk");
+	of << "# vtk DataFile Version 2.0" << endl;
+	of << "Flag data" << endl;
+	of << "ASCII" << endl << endl;
+	of << "DATASET STRUCTURED_POINTS" << endl;
+	of << "DIMENSIONS " << nx << " " << ny << " " << nz << endl;
+	of << "ORIGIN " << 0 << " " << 0 << " " << 0 << endl;
+	of << "SPACING " << 1 << " " << 1 << " " << 1 << endl << endl;
+	of << "POINT_DATA " << nx * ny * nz << endl;
+	of << "SCALARS flag int" << endl;
+	of << "LOOKUP_TABLE deafult" << endl;
+	int n = nx * ny * nz;
+	for (int i = 0; i < n; i++)
+		of << (int)flag[i] << endl;
+}
+
 int main(int argc, char* argv[])
  {
-	 cout << argc << endl;
+	 // usage
 	 if (argc != 2) {
 		 cerr << "Usage voxelizer.exe <filename>.stl" << endl;
 		 exit(EXIT_FAILURE);
 	 }
 	string fname(argv[1]);
+
 	// import geometry
 	Geometry geo(fname);
-	cout << geo.get_bound() << endl;
 
 	// set bounding box
-	V3 minCorner(V3::zero);
-	V3 maxCorner(1.0, 1.0, 1.0);
-	GridBox grid(minCorner, maxCorner, 0.01); // dx = 0.01, so 100 cells in each direction
-	cout << "dx = " << grid.get_dx() << endl;
+	V3 minCorner(0.0, 0.0, 0.0);
+	V3 geoExt = geo.get_bound().get_extend();
+	//V3 maxCorner(0.5, 0.5, 0.5);
+	minCorner = geo.get_bound().get_minCorner();
+	V3 maxCorner(0.0, 0.0, 0.0);
+	maxCorner += geoExt;
 
+	// generate gridBox
+	cout << geoExt << endl;
+	cout << maxCorner << endl;
+	GridBox grid(minCorner, maxCorner, geoExt.z / 100); // dx = 0.01, so 100 cells in each direction
+
+	// generate voxilzer from geometry and gridbox
 	Voxelizer vox(geo, grid);
+
+	// get flag
+	const char* flag = vox.get_flag();
+	int3 gridNum = grid.get_gridNum();
+	int count = 0;
+	for (int i = 0; i < gridNum.nx * gridNum.ny * gridNum.nz; i++)
+	{
+		//if (*(flag+i) == 0) count++;
+		if (flag[i] == 0) count++;
+	}
+	cout << "count of flag == 0 : " << count << endl;
+
+	// wirte vtk file of flag, use paraview to view the flag data
+	vox.write_vtk_image();
+
     return 0;
 }

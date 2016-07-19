@@ -28,6 +28,7 @@ public:
 	V3& operator/=(const double& rv);
 	// static variables
 	static V3 zero;
+	static V3 one;
 	// normal vector
 	double normal() const;
 	// coordinate

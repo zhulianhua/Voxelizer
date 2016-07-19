@@ -87,3 +87,4 @@ double V3::normal() const {
 }
 
 V3 V3::zero = V3(0.0, 0.0, 0.0);
+V3 V3::one = V3(1.0, 1.0, 1.0);

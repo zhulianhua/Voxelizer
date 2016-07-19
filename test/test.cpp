@@ -2,8 +2,8 @@
 #include <vector>
 
 using namespace std;
-void f(int&);
-void g(const int&);
+void f(int&) {};
+void g(const int&) {};
 
 int main(int argc, char* argv[])
 {
