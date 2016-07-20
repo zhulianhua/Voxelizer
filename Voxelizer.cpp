@@ -1,6 +1,3 @@
-// voxelizer.cpp : Defines the entry point for the console application.
-//
-
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -8,7 +5,6 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
-#include "stdafx.h"
 #include "Voxelizer.h"
 
 //#define DEBUG
@@ -27,9 +23,6 @@ vector<int> tri_plane(Triangle& tri_, double z_){
 
 // get the section line of triangle with a z plane
 Line tri_sec_plane(Triangle& tri_, vector<int>& aboveP_, double z_) {
-	// find which points are above
-	//if (tri_plane(tri_, z_) == 1);
-	//if (ans.size() )
 	Line line1, line2;
 	if (aboveP_.size() == 1) {
 		if (aboveP_[0] == 1) {
@@ -73,7 +66,6 @@ ostream& operator<<(ostream& os_, Bbox& box_)
 		<< "minCorner: \t" << box_.minCorner << endl
 		<< "maxCorner: \t" << box_.maxCorner << endl
 		<< "Extend: \t" << box_.get_extend() << endl << ")" << endl;
-		
 	return os_;
 }
 
@@ -95,6 +87,7 @@ V3 Line::p_cross_x_plane(double x) const {
 }
 
 Geometry::Geometry(string fname) {
+	cout << "Reading geometry ..." << endl;
 	read_stl_file(fname);
 	cout << "Num of triangle " << get_num_tri() << endl;
 	set_bound();
@@ -106,6 +99,7 @@ GridBox::GridBox(V3& minCorner_, V3& maxCorner_, double dx_)
 	: Bbox(minCorner_, maxCorner_), dx(dx_)
 {
 	// the size in x/y/z direction has to be multiple of dx
+	cout << "Generate grid ..." << endl;
 	V3 extend = maxCorner - minCorner;
 	int nxI = (int)(extend.x / dx);
 	int nyI = (int)(extend.y / dx);
@@ -114,7 +108,10 @@ GridBox::GridBox(V3& minCorner_, V3& maxCorner_, double dx_)
 	double yRes = extend.y - nyI * dx;
 	double zRes = extend.z - nzI * dx;
 	if (xRes > 1e-6 * dx || yRes > 1e-6 * dx || zRes > 1e-6 * dx)
+	{
+		cerr << "Grid box size is not dx*Nxyz" << endl;
 		exit(EXIT_FAILURE);
+	}
 	gridNum = int3(nxI, nyI, nzI);
 }
 
@@ -135,7 +132,7 @@ void Geometry::read_stl_file(string fname) {
 	if (stlFile)
 	{
 		stlFile.read(headInfo, 80);
-		cout << ">> Reading " << headInfo << endl;
+		cout << "STL file comment " << headInfo << endl;
 		char nTriRaw[4];
 		stlFile.read(nTriRaw, 4);
 		unsigned numTri = *((unsigned*)nTriRaw);
@@ -213,23 +210,23 @@ void Geometry::set_bound() {
 
 Voxelizer::Voxelizer(Geometry& geo_, GridBox& grid_) : geo(geo_), grid(grid_) {
 	// scale (in the z direction) and shift the geometry to fit the grid
+	cout << "Generating voxilzer ..." << endl;
 	Bbox bound = geo.get_bound();
 	cout << "GEO bound = " << bound << endl;
 
 	double dx = grid.get_dx();
-	double scale = (grid.get_extend().z - 2.0 * dx )/ bound.get_extend().z;
-	geo.scale_shift(scale, V3::zero);
+	//double scale = (grid.get_extend().z - 2.0 * dx )/ bound.get_extend().z;
+	//geo.scale_shift(scale, V3::zero);
 
 	V3 shift = grid.get_minCorner() - geo.get_bound().get_minCorner();
-	shift += V3(dx, dx, dx);
+	shift += V3(2*dx, 2*dx, 2*dx);
 	geo.scale_shift(1.0, shift);
-	
-	geo.scale_shift(1.0, V3::zero);
 
 	int3 gridNum = grid.get_gridNum();
 	int nx = gridNum.nx;
 	int ny = gridNum.ny;
 	int nz = gridNum.nz;
+	cout << "nx = " << nx << ", ny = " << ny << ", nz = " << nz << endl;
 	long numTotal = nx * ny * nz;
 	flag = new char[numTotal];
 	for (int i = 0; i < numTotal; i++)
@@ -239,34 +236,12 @@ Voxelizer::Voxelizer(Geometry& geo_, GridBox& grid_) : geo(geo_), grid(grid_) {
 	{
 		vector<Line> lines;
 		get_z_sections(lines, iz);
-#ifdef DEBUG
-		if (iz == 1) cout << lines.size() << endl;
-		//cout << "Slize z = " << iz << ", sec lines numeber : " << lines.size() << endl;
-		if (iz == 11) {
-			ofstream of("line.txt");
-			for (auto&& l : lines) {
-				of << l.p1.x << "\t" << l.p1.y << endl;
-				of << l.p2.x << "\t" << l.p2.y << endl;
-			}
-			of.close();
-		}
-#endif
 		for (int iy = 1; iy <= ny; iy++)
 		{
 			vector<int> xids;
 			get_xid_cross(xids, iy, lines, iz);
-			//cout << iz << " " << iy << " !!!!!!!" << endl;
-#ifdef DEBUG
-			if (iy == 42 && iz == 11) {
-				cout << "Cross ix : " << endl;
-				if(!xids.empty())
-					for (auto&& ix : xids)
-						cout << ix << endl;
-				cout << "End cross ix" << endl;
-			}
-#endif
 			int n_change = 0;
-			bool isBlack = true;
+			bool isBlack = false;
 			if (xids.empty()) {
 				for (int ix = 0; ix < nx; ix++) {
 					flag[(iz - 1) * nx * ny + (iy - 1) * nx + ix] = isBlack;
@@ -322,9 +297,6 @@ void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_, vector<Triangle>& 
 void Voxelizer::get_z_sections(vector<Line>& lines_, int iz_) const {
 	lines_.clear();
 	double z = grid.get_dx() * iz_ + grid.get_minCorner().z;
-	//cout << "z = " << z << endl;
-	//cout << "dx = " << grid.get_dx() << endl;
-	//cout << "zmin = " << grid.get_minCorner().z << endl;
 	for (int i = 0; i < geo.get_num_tri(); i++) {
 		Triangle triTmp = geo.get_tri(i);
 		vector<int> aboveP = tri_plane(triTmp, z);
@@ -354,12 +326,6 @@ void Voxelizer::get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_,
 	xids_.clear();
 	for (auto && lineTmp : lines_) 
 		if ((lineTmp.p1.y - y) * (lineTmp.p2.y - y) < 0.0) { // line cross y
-#ifdef DEBUG
-			if (iy_ == 40 && iz_ == 40) {
-				cout << lineTmp.p1 << endl;
-				cout << lineTmp.p2 << endl;
-			}
-#endif
 			V3 cross = lineTmp.p_cross_y_plane(y);
 			int xx = int((cross.x - minCorner.x) / dx);
 			xids_.push_back(xx);
@@ -369,6 +335,7 @@ void Voxelizer::get_xid_cross(vector<int>& xids_, int iy_, vector<Line>& lines_,
 }
 
 void Voxelizer::write_vtk_image() {
+	cout << "Writing vtk image ..." << endl;
 	int3 gridNum = grid.get_gridNum();
 	int nx = gridNum.nx;
 	int ny = gridNum.ny;
@@ -387,49 +354,4 @@ void Voxelizer::write_vtk_image() {
 	int n = nx * ny * nz;
 	for (int i = 0; i < n; i++)
 		of << (int)flag[i] << endl;
-}
-
-int main(int argc, char* argv[])
- {
-	 // usage
-	 if (argc != 2) {
-		 cerr << "Usage voxelizer.exe <filename>.stl" << endl;
-		 exit(EXIT_FAILURE);
-	 }
-	string fname(argv[1]);
-
-	// import geometry
-	Geometry geo(fname);
-
-	// set bounding box
-	V3 minCorner(0.0, 0.0, 0.0);
-	V3 geoExt = geo.get_bound().get_extend();
-	//V3 maxCorner(0.5, 0.5, 0.5);
-	minCorner = geo.get_bound().get_minCorner();
-	V3 maxCorner(0.0, 0.0, 0.0);
-	maxCorner += geoExt;
-
-	// generate gridBox
-	cout << geoExt << endl;
-	cout << maxCorner << endl;
-	GridBox grid(minCorner, maxCorner, geoExt.z / 100); // dx = 0.01, so 100 cells in each direction
-
-	// generate voxilzer from geometry and gridbox
-	Voxelizer vox(geo, grid);
-
-	// get flag
-	const char* flag = vox.get_flag();
-	int3 gridNum = grid.get_gridNum();
-	int count = 0;
-	for (int i = 0; i < gridNum.nx * gridNum.ny * gridNum.nz; i++)
-	{
-		//if (*(flag+i) == 0) count++;
-		if (flag[i] == 0) count++;
-	}
-	cout << "count of flag == 0 : " << count << endl;
-
-	// wirte vtk file of flag, use paraview to view the flag data
-	vox.write_vtk_image();
-
-    return 0;
 }

@@ -27,11 +27,6 @@ public:
 	V3 p2;
 };
 
-bool corss_y(Line line_, double y)
-{
-	return (line_.p1.y - y) * (line_.p2.y - y) > 0.0;
-}
-
 class Bbox {
 public:
 	Bbox() {};
