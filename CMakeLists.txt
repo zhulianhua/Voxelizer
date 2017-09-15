@@ -7,6 +7,7 @@ IF( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     set(CMAKE_CXX_FLAGS "-std=c++11 -O3 -DNDEBUG -mavx -Wmaybe-uninitialized ")
     set(CMAKE_EXE_LINKER_FLAGS "-DNDEBUG -mavx")
 ELSEIF ( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "-std=c++11 -O3 -DNDEBUG")
 ENDIF()
 
 file(GLOB SRC_LIST "*.cpp")

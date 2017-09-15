@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
+#include "V3.h"
 #include "Voxelizer.h"
 
 //#define DEBUG
@@ -218,9 +219,9 @@ Voxelizer::Voxelizer(Geometry& geo_, GridBox& grid_) : geo(geo_), grid(grid_) {
 	//double scale = (grid.get_extend().z - 2.0 * dx )/ bound.get_extend().z;
 	//geo.scale_shift(scale, V3::zero);
 
-	V3 shift = grid.get_minCorner() - geo.get_bound().get_minCorner();
-	shift += V3(2*dx, 2*dx, 2*dx);
-	geo.scale_shift(1.0, shift);
+	//V3 shift = grid.get_minCorner() - geo.get_bound().get_minCorner();
+	//shift += V3(2*dx, 2*dx, 2*dx);
+	//geo.scale_shift(1.0, shift);
 
 	int3 gridNum = grid.get_gridNum();
 	int nx = gridNum.nx;

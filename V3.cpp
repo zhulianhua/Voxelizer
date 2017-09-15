@@ -22,7 +22,7 @@ V3::V3(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {
 V3::~V3() {
 }
 
-ostream& operator<<(ostream& os, V3& v) {
+ostream& operator<<(ostream& os, V3 v) {
 	os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
 	return os;
 }

@@ -102,4 +102,4 @@ private:
 	// grid box
 	GridBox grid;
 };
-#endif VOXELIZER_H
+#endif

@@ -9,7 +9,7 @@ public:
 	V3(char* facet);
 	V3(double x_, double y_, double z_);
 	~V3();
-	friend ostream& operator<<(ostream& os, V3& v);
+	friend ostream& operator<<(ostream& os, V3 v);
 	const V3 operator+(const V3& rv) const;
 	const V3 operator-(const V3& rv) const;
 	const V3 operator*(const double& rv) const;
