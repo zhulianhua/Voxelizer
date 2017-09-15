@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
     Geometry geo(fname);
     // The geometry bound, min/max corners coordinates will be reported.
     // These information will be used to determine the appropriate bound the grid
-    // For this example we use the cube.stl file
+    // For this example we use the sphere.stl file
     // Tese reported information are
     //
     //GEO bound = Bbox(
@@ -33,14 +33,13 @@ int main(int argc, char* argv[])
     V3 gridExtend = gridMaxCorner - gridMinCorner;
 
     // and we want a 33 voxels along X direction,
-    // so dx = (1-(-1))/32;
     double dx = gridExtend.x / 33;
     // and the grid number in each direction can be determined
     // Why not 32??? The voxillization implemntation is not robust enough.
-    // If use 32, then the polar points causes wrong vexillization in the sphere axis
+    // If using 32, then the polar points causes wrong vexillization in the sphere axis
 
     // set grid bounding corner
-    //int3 gridNum = int3(gridExtend.x / dx, gridExtend.y / dx, gridExtend.z /dx);
+    int3 gridNum = int3(gridExtend.x / dx, gridExtend.y / dx, gridExtend.z /dx);
 
     // create the grid finally
     GridBox grid(gridMinCorner, dx, gridNum);
